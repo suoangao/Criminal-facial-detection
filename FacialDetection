@@ -1,0 +1,86 @@
+import numpy as np
+import cv2
+from sklearn.preprocessing import normalize
+import face_recognition
+
+eigen_value = np.load('eigen-value.npy')[:40]
+eigen_vector = np.load('eigen-vector.npy')[:40]
+
+# print(eigen_value)
+# print(eigen_vector.shape)
+
+avgExclud = np.load('AVGExcluded.npy')
+# print(avgExclud.shape)
+
+EigenVecForData = np.dot(eigen_vector, avgExclud)
+print(EigenVecForData.shape)
+normEigen = normalize(EigenVecForData, axis=1)
+print('normEigan', normEigen.shape)
+
+avgFace = np.load('avgFac.npy')
+# print('avgF', avgFace.shape)
+cv2.imwrite('avFc.jpg', avgFace.reshape(90, 90, 3))
+# cv2.imwrite('avFc.jpg', avgFace.reshape(90, 90))
+
+Face = avgFace + avgExclud
+cv2.imwrite('DesiredFace.jpg', Face[101].reshape(90, 90, 3))
+# cv2.imwrite('115Face.jpg', Face[28].reshape(90, 90))
+print('face', Face.shape)
+
+i = 0
+# for row in EigenVecForData:
+#     i = i + 1
+#     cv2.imwrite('eigenFace{}.jpg'.format(i), row.reshape(90, 90))
+#     cv2.waitKey(0)
+#     cv2.destroyAllWindows()
+
+weightArr = np.dot(normEigen, avgExclud.T)
+print('weightedArray', weightArr.shape)
+facesRecv = np.dot(weightArr.T, normEigen)
+print('FaceRecovery', facesRecv.shape)
+
+# face1 = cv2.imwrite('test@1.jpg', (facesRecv + avgFace)[0].reshape(90, 90, 3))
+# cv2.waitKey(0)
+# cv2.destroyAllWindows()
+
+# #############New Image #######
+image = face_recognition.load_image_file("TE.pgm")
+# image = cv2.cvtColor(image_pre, cv2.COLOR_BGR2GRAY)
+
+# Find all the faces in the image using a pre-trained convolutional neural network.
+# This method is more accurate than the default HOG model, but it's slower
+# unless you have an nvidia GPU and dlib compiled with CUDA extensions. But if you do,
+# this will use GPU acceleration and perform well.
+# See also: find_faces_in_picture.py
+face_locations = face_recognition.face_locations(image)
+
+# print("I found {} face(s) in this photograph.".format(len(face_locations)))
+
+face_Arr_record = np.array([])
+for face_location in face_locations:
+
+    # Print the location of each face in this image
+    top, right, bottom, left = face_location
+
+    # You can access the actual face itself like this:
+    face_image = image[top:bottom, left:right]
+    face_Arr_rs = cv2.resize(face_image, (90, 90))
+    face_Arr_record = face_Arr_rs.reshape(90 * 90 * 3)
+    # face_Arr_record = face_Arr_rs.reshape(90 * 90)
+
+print(face_Arr_record.shape)
+W_new = np.dot(normEigen, (face_Arr_record - avgFace).T)
+print('wnew', type(W_new))
+
+index = np.argmin([np.linalg.norm(Weight - W_new) for Weight in weightArr.T])
+print(index)
+
+# index = np.argmin([scipy.spatial.distance.mahalanobis(Weight, W_new, np.linalg.inv(np.cov((Weight - W_new)
+#                                                                                           ))) for Weight in weightArr.T])
+# print(index)
+
+# np.square(W_new - Weight) / np.linalg.eig(np.cov(W_new, Weight))[0]
+#
+# # square = np.array([(Weight - W_new)**2 for Weight in weightArr])
+# #
+# # index = np.argmin([sum(i) for i in np.divide(square.T, ).T])
